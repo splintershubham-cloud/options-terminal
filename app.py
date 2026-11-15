@@ -150,12 +150,13 @@ def update_and_build_candles(index_key, live_spot):
 
     if len(history) < 2:
         base = live_spot if live_spot > 0 else 25000.0
-        return pd.DataFrame([
+        df = pd.DataFrame([
             {"time": now - timedelta(minutes=5), "open": base, "high": base, "low": base, "close": base},
             {"time": now, "open": base, "high": base, "low": base, "close": base},
         ])
+    else:
+        df = pd.DataFrame(history)
 
-    df = pd.DataFrame(history)
     df["ema9"] = df["close"].ewm(span=9, adjust=False).mean()
     df["ema21"] = df["close"].ewm(span=21, adjust=False).mean()
 
@@ -233,7 +234,6 @@ intraday_trend = "BULLISH" if last_row.get("close", 0) >= last_row.get("ema21", 
 now_ist = datetime.now(IST).strftime("%d %b %Y | %H:%M:%S IST")
 fig = go.Figure()
 fig.add_trace(go.Candlestick(x=df["time"], open=df["open"], high=df["high"], low=df["low"], close=df["close"], name=selected_idx))
-if "ema9" in df.columns:
 fig.add_trace(go.Scatter(x=df["time"], y=df["ema9"], line=dict(color="#2962ff", width=1.4), name="9 EMA"))
 fig.add_trace(go.Scatter(x=df["time"], y=df["ema21"], line=dict(color="#e91e63", width=1.4), name="21 EMA"))
 ce_sig = df[df["buy_ce"]]
