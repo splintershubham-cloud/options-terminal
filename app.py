@@ -77,11 +77,11 @@ def fetch_live_option_chain(key, cfg):
         bias = "BULLISH (Spot > Open)" if chg_pct > 0.15 else ("BEARISH (Spot < Open)" if chg_pct < -0.15 else "SIDEWAYS / NEUTRAL")
         return {
             "spot": round(spot, 2),
-            "expiry": "BSE Weekly",
+            "expiry": "BSE Weekly" if cfg["exchange"] == "BSE" else "NSE Feed",
             "atm": atm_strike,
             "ce_txt": f"{atm_strike} CE (ATM Call)",
             "pe_txt": f"{atm_strike} PE (ATM Put)",
-            "pcr": "BSE Feed",
+            "pcr": "Live Spot",
             "bias": bias,
         }
     except Exception:
@@ -110,13 +110,16 @@ def fetch_daily_levels_and_trend(cfg):
             ema20 = df["CLOSE"].ewm(span=20, adjust=False).mean().iloc[-1]
             daily_trend = "BULLISH" if df["CLOSE"].iloc[-1] > ema20 else "BEARISH"
             return {"pdh": pdh, "pdl": pdl, "daily_trend": daily_trend}
-        else:
-            df = yf.Ticker(cfg["yf"]).history(period="2mo", interval="1d")
-            pdh = round(float(df["High"].iloc[-2]), 2)
-            pdl = round(float(df["Low"].iloc[-2]), 2)
-            ema20 = df["Close"].ewm(span=20, adjust=False).mean().iloc[-1]
-            daily_trend = "BULLISH" if float(df["Close"].iloc[-1]) > ema20 else "BEARISH"
-            return {"pdh": pdh, "pdl": pdl, "daily_trend": daily_trend}
+    except Exception:
+        pass
+
+    try:
+        df = yf.Ticker(cfg["yf"]).history(period="2mo", interval="1d")
+        pdh = round(float(df["High"].iloc[-2]), 2)
+        pdl = round(float(df["Low"].iloc[-2]), 2)
+        ema20 = df["Close"].ewm(span=20, adjust=False).mean().iloc[-1]
+        daily_trend = "BULLISH" if float(df["Close"].iloc[-1]) > ema20 else "BEARISH"
+        return {"pdh": pdh, "pdl": pdl, "daily_trend": daily_trend}
     except Exception:
         return {"pdh": None, "pdl": None, "daily_trend": "N/A"}
 
@@ -226,7 +229,7 @@ def refresh_all(_, selected_idx):
     fii_dii = fetch_fii_dii_live()
 
     last_row = df.iloc[-1]
-    intraday_trend = "BULLISH" if last_row.get("close", 0) >= last_row.get("ema21", 0) else "BEARISH"
+intraday_trend = "BULLISH" if last_row.get("close", 0) >= last_row.get("ema21", 0) else "BEARISH"
 now_ist = datetime.now(IST).strftime("%d %b %Y | %H:%M:%S IST")
 fig = go.Figure()
 fig.add_trace(go.Candlestick(x=df["time"], open=df["open"], high=df["high"], low=df["low"], close=df["close"], name=selected_idx))
@@ -267,5 +270,4 @@ fig.add_annotation(xref="paper", yref="paper", x=0.995, y=0.99, xanchor="right",
 fig.update_layout(template="plotly_dark", xaxis_rangeslider_visible=False, margin=dict(l=30, r=30, t=30, b=30), legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="left", x=0))
 return fig, html.Div(style={"display": "flex", "justifyContent": "space-between"}, children=cards)
 if name == "main":
-print("Starting Live 4-Index Options Terminal... Open http://127.0.0.1:8050 in your browser.")
 app.run(debug=False, host="0.0.0.0", port=8050)
